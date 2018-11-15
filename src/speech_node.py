@@ -21,6 +21,7 @@ from google_cloud_speech.msg import RecognizedWord
 from google.cloud import speech
 from google.cloud.speech import enums
 from google.cloud.speech import types
+from google.cloud import speech_v1p1beta1 as speech
 from six.moves import queue
 
 
@@ -123,6 +124,8 @@ class GoogleCloudSpeechNode:
         rospy.Timer(rospy.Duration(0.2), self.handle_timer_callback)
 
         self.language_code = 'en-US' #default language code
+        self.second_language_code = 'ko-KR' #alternative language code
+
         self.conf_srv = Server(RecognitionConfig, self.callback_config)
         self.vocabulary_file = rospy.get_param('~vocabulary_file', '')
         self.vocabulary = []
@@ -138,13 +141,14 @@ class GoogleCloudSpeechNode:
         client = speech.SpeechClient()
 
         while not rospy.is_shutdown():
-            config = types.RecognitionConfig(
+            config = speech.types.RecognitionConfig(
                 encoding=enums.RecognitionConfig.AudioEncoding.LINEAR16,
                 sample_rate_hertz=RATE,
-                language_code=self.language_code)
-            streaming_config = types.StreamingRecognitionConfig(
+                language_code=self.language_code,
+                alternative_language_codes=[self.second_language_code])
+            streaming_config = speech.types.StreamingRecognitionConfig(
                 config=config,
-                single_utterance=False,
+                single_utterance=True,
                 interim_results=True)
 
             if not self.enable_recognition:
@@ -220,8 +224,8 @@ class GoogleCloudSpeechNode:
                 msg.recognized_word = result.alternatives[0].transcript
                 msg.confidence = result.alternatives[0].confidence
 
-                rospy.loginfo("\033[91mRecognized:\033[0m %s", msg.recognized_word)
-                rospy.loginfo("\033[91mConfidence:\033[0m: %s", str(msg.confidence))
+                rospy.loginfo("\033[91mRecognized:\033[0m %s", msg.recognized_word.encode('utf-8'))
+                rospy.loginfo("\033[91mConfidence:\033[0m: %s", str(msg.confidence).encode('utf-8'))
 
                 self.pub_recognized_word.publish(msg)
                 return
